@@ -7,6 +7,5 @@ LABEL maintainer="agoethals@henix.fr" Description="Image Debian 10 adaptée à u
 
 RUN apt update
 RUN apt install -y openssh-server python python-pip
-RUN service ssh start
 RUN mkdir -p /root/.ssh
 COPY authorized_keys /root/.ssh/authorized_keys 
