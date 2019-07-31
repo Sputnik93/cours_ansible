@@ -1,0 +1,16 @@
+---
+
+- hosts: local
+
+  tasks:
+
+  - name: Build Debian 9 Ansible image
+    docker_image:
+      build: 
+        path: /home/formation/docker-images/
+        pull: no
+        dockerfile: debian-ansible
+      name: debian-ansible
+      tag: stretch
+      source: build
+      state: present
