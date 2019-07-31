@@ -1,0 +1,26 @@
+---
+
+- hosts: local
+  gather_facts: false
+
+  vars:
+          conteneurs:
+                  squashtm: 10.0.0.2
+                  mariadb1: 10.0.0.3
+                  mariadb2: 10.0.0.4
+                  proxy: 10.0.0.5
+
+  tasks:
+          - name: Deploy containers
+            docker_container:
+                    name: "{{ item.key }}"
+                    hostname: "{{ item.key }}"
+                    image: debian-ansible:stretch
+                    state: started
+                    tty: yes
+                    pull: no
+                    purge_networks: yes
+                    networks:
+                            - name: testnet
+                              ipv4_address: "{{ item.value }}"
+            loop: "{{ conteneurs | dict2items }}"

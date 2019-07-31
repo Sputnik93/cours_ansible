@@ -1,0 +1,89 @@
+---
+
+- hosts: mariadb1
+
+  vars:
+          server_id: 1
+          IPv4: 10.0.0.3
+
+  tasks:
+          - name: Tansfer template configuration file
+            template: 
+              src: ./50-server.cnf.j2
+              dest: /etc/mysql/mariadb.conf.d/50-server.cnf 
+
+          - name: Restart mariadb server
+            service:
+                    name: mysql
+                    state: restarted
+
+          - name: Create replication user
+            mysql_user:
+                    login_user: root
+                    login_unix_socket: /var/run/mysqld/mysqld.sock
+                    name: 'replicator'
+                    host: '%'
+                    password: 'replication'
+                    priv: '*.*:REPLICATION SLAVE'
+                    state: present
+
+          - name: Stop slave and reset master
+            shell:
+                    mysql -u root -e 'stop slave ;'
+                    mysql -u root -e 'reset master ;'
+
+- hosts: mariadb2
+
+  vars:
+          server_id: 2
+          IPv4: 10.0.0.4
+
+  tasks:
+          - name: Tansfer template configuration file
+            template: 
+              src: ./50-server.cnf.j2
+              dest: /etc/mysql/mariadb.conf.d/50-server.cnf 
+
+          - name: Restart mariadb server
+            service:
+                    name: mysql
+                    state: restarted
+
+          - name: Create replication user
+            mysql_user:
+                    login_user: root
+                    login_unix_socket: /var/run/mysqld/mysqld.sock
+                    name: 'replicator'
+                    host: '%'
+                    password: 'replication'
+                    priv: '*.*:REPLICATION SLAVE'
+                    state: present
+
+          - name: Stop slave and reset master
+            shell:
+                    mysql -u root -e 'stop slave ;'
+                    mysql -u root -e 'reset master ;'
+
+- hosts: mariadb1
+  tasks: 
+          - name: Set slave parameters and start slaves
+            shell:              
+                    mysql -u root -e "change master to master_host='10.0.0.4', master_port=3306, master_user='replicator', master_password='replication', master_use_gtid=current_pos ;"
+                    mysql -u root -e 'start slave ;'
+
+- hosts: mariadb2
+  tasks: 
+          - name: Set slave parameters and start slaves
+            shell:              
+                    mysql -u root -e "change master to master_host='10.0.0.3', master_port=3306, master_user='replicator', master_password='replication', master_use_gtid=current_pos ;"
+                    mysql -u root -e 'start slave ;'
+
+- hosts: databases
+  tasks:  
+
+          - name: Check replication status
+            mysql_replication:
+                    login_user: root
+                    login_unix_socket: /var/run/mysqld/mysqld.sock
+                    mode: getslave
+

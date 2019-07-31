@@ -1,0 +1,10 @@
+# Extra args passed to JVM
+JAVA_ARGS="-Xms128m -Xmx1024m -XX:MaxPermSize=128m -Djava.awt.headless=true"
+
+HTTP_PORT=8080
+
+# Database parameters
+DB_URL="jdbc:mysql://mariacluster:3306/squash_db"
+DB_TYPE="mysql"
+DB_USERNAME="{{ squashdb_user }}"
+DB_PASSWORD="{{ squashdb_password }}"
