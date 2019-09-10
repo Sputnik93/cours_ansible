@@ -1,0 +1,118 @@
+Etapes:
+
+
+
+PREREQUIS
+
+installation ansible, python, pip
+installation docker-py
+
+création d'une clé SSH et ajout dans le /root/.ssh/authorized_keys
+
+ajout d'une ligne: localhost ansible_connection=local dans le /etc/ansible/hosts
+
+test: ansible local -m ping => OK
+
+test de lancement d'un conteneur via ansible: ansible local -b -m docker_container -a "name=test image=alpine" => OK
+
+dans la config ansible, bien mettre remote_user=root si on veut se connecter au compte root
+
+===> PREREQUIS VERIFIES
+
+
+
+
+CREATION DES IMAGES DOCKER
+
+création d'un répertoire dédié
+identification des images de base appropriées: mariadb/server, httpd et squashtest/squash-tm 
+création des dockerfiles mariadb, squash-tm et reverse
+
+Note: pour utiliser docker_image build il faut la version 2.8 minimum, qui n'est pas dans les dépôts de stretch. On supprime ansible et on le résinatalle avec pip (2.8.2)
+
+===> IMAGES CREEES
+
+
+EDIT: On se contentera d'images debian génériques adaptées à ansible (trop compliqué d'avoir connexion ssh sur les dockrs alpine)
+
+
+
+INSTANCIATION DES CONTENEURS DE L'ENVIRONNEMENT
+
+lancer 2 conteneurs mariadb, 1 conteneur squash et 1 conteneur httpd. Enregistrer leurs IP dans le fichier /etc/hosts et /etc/ansible/hosts
+Les conteneurs sont lancés via un playbok ansible. (deploy_env.yaml)
+Une fois créés, il faut activer leurs serveurs ssh avant de les gérer via ansible:
+for truc in $(docker ps -q) ; do docker exec -t $truc bash -c 'service ssh start' ; done
+-> à inclure dans le playbook !
+
+==> CONTENEURS INSTANCIES
+
+
+
+DEPLOIEMENT DES APPLICATIFS
+
+On déploiera les applications (mariadb, squashtm, apache) par des playbooks / rôles ansible.
+
+
+MARIADB
+playbook déploiement mariadb OK. Attention, il faut utiliser le dépôt communautaire de mariadb (sur stretch, c'est la 10.1 dans les dépôts, elle est incompatible avec squash-tm) 
+Mais du coup la connexion par socket n'est pas activée. Trop relou. Du coup on va prendre des images buster.
+
+Reste à mettre en place la réplication Master -> Master ou Master -> Worker
+à voir en copiant un fichier de conf mariadb-template jinja2 pour mettre les variables server_id et log_bin etc.
+=> OK, ils sont tous les 2 masters, reste à conf la réplication (créer les users, positionner les logbin, etc) (replcation/replicator)
+
+actions réalisées à la main, mais possibilité de ansibleiser le tout avec des appels au module shell pour exécuter les commandes mysql
+stop slave ;
+reset master ;
+
+change master to
+master_host='172.17.0.4',
+master_port=3306,
+master_user='replication',
+master_password='replicator',
+master_use_gtid=current_pos ;
+
+start slave ;
+
+
+ATTENTION DANS LA CONF MARIADB il faut utiliser log_bin_trust_function_creators = ON sinon on ne peut pas peulpler la bdd avec le user squash (il faut les super privileges pour créer des fonctions et des triggers)
+
+==> MARIADB OK
+
+
+
+SQUASHTM
+installation d'une JVM Java 8 Hotspot (tarball)
+installation de squash (version variabilisée) par une tarball (s'inspirer du dockerfile de qdu)
+transfert d'un template jinja2 pour le fichier de conf de squash
+
+Attention: impossible de stopper le service squash-tm:
+root@squashtm:/var/log/squash-tm# /etc/init.d/squash-tm stop
+start-stop-daemon: matching only on non-root pidfile /var/run/squash-tm/squash-tm.pid is insecure
+
+Patch: 
+START="--start --quiet --pidfile $PIDFILE --startas ${DAEMON}"
+-STOP="--stop --quiet --pidfile $PIDFILE"
++STOP="--stop --quiet --pidfile $PIDFILE --user amavis"
+
+Editer la ligne 173 de /etc/init.d/squash-tm pour ajouter --user ${SQUASH_USER} à la ligne
+
+
+PROXY
+installation d'apache via les dépôts
+2 vhost à donner via template jinja2: 1 pour squash-tm, 1 pour le cluster mariadb
+
+Proxy mariadbcluster:
+rediriger mariadbcluster.proxy vers mariadb1 OU mariadb2
+
+
+
+
+PAS DE PROXY
+faire un check auto de la bdd squash et si elle répond pas, changer pour mariadb2 dans le fichier de conf et restart squash
+
+
+
+ATTENTION LES CONTENEURS DOCKER PEUVENT TOUT A FAIT CHANGER D'ADRESSE IP APRES REDEMARRAGES
+IL VAUT MIEUX DEFINIR UN NETWORK EXPRES ET ATTRIBUER LES IP A LA MAIN A LA CREATION DES CONTENEURS
