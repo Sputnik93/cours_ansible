@@ -1,0 +1,50 @@
+---
+
+- hosts: mariadb
+
+  tasks:
+
+   - name: Load variables
+     include_vars:
+       file: secret.yaml
+
+   - name: Update cache
+     apt:
+       update_cache: yes
+       upgrade: safe
+
+   - name: Install mariadb-server
+     apt:
+       name: mariadb-server
+       state: latest
+
+   - name: Install PyMySQL python module
+     pip:
+       name: PyMySQL
+       state: present
+
+   - name: Make mariadb server listen on its IPv4 address
+     shell: sed -i -e "s/bind-address.*$/bind-address = $(hostname -I)/" /etc/mysql/mariadb.conf.d/50-server.cnf
+
+   - name: Restart mariadb server
+     service:
+       name: mysql
+       state: restarted
+ 
+   - name: Create squashtm database
+     mysql_db:
+       login_user: root
+       login_unix_socket: /var/run/mysqld/mysqld.sock
+       name: squash_db
+       encoding: utf8
+       state: present
+
+   - name: Create squashtm database user
+     mysql_user:
+       login_user: root
+       login_unix_socket: /var/run/mysqld/mysqld.sock
+       name: "{{ squashdb_user }}"
+       host: '%'
+       password: "{{ squashdb_password }}"
+       priv: 'squash_db.*:ALL'
+       state: present

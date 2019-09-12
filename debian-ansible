@@ -1,11 +1,11 @@
-# mariadb-server version ansible
+# version ansible
 #
 # Version: 1.0
 
 FROM debian:buster
-LABEL maintainer="agoethals@henix.fr" Description="Image Debian 10 adaptée à une utilisation par ansible" tag="stretch"
+LABEL maintainer="agoethals@henix.fr" Description="Image Debian 10 adaptée à une utilisation par ansible" tag="buster"
 
 RUN apt update
 RUN apt install -y openssh-server python python-pip
 RUN mkdir -p /root/.ssh
-COPY authorized_keys /root/.ssh/authorized_keys 
+COPY id_rsa.pub /root/.ssh/authorized_keys 

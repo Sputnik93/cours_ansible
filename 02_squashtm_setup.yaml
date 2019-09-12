@@ -1,0 +1,69 @@
+---
+
+- hosts: squash
+  gather_facts: true 
+  vars:
+          - squash_repo: 'http://repo.squashtest.org'
+          - squash_key_url: "{{ squash_repo }}/repo.squashtest.org.gpg.key"
+          - squash_key_id: '071D30C5671A11F9FC029283417A5213D56D74C7'
+          - db_host: 10.0.0.3
+          - jvm_url: https://github.com/AdoptOpenJDK/openjdk8-binaries/releases/download/jdk8u222-b10/OpenJDK8U-jdk_x64_linux_hotspot_8u222b10.tar.gz
+
+
+  tasks:
+
+          - name: Add squash repo
+            apt_repository:
+                    repo: "deb {{ squash_repo }}/debian {{ ansible_distribution_release | lower }} main"
+                    state: present
+                    update_cache: no
+
+          - name: Import squash repo key
+            apt_key:
+                    url: "{{ squash_key_url }}"
+                    id: "{{ squash_key_id }}"
+                    state: present
+                    validate_certs: no
+
+          - name: Delete JRE 11
+            apt:
+                    name: openjdk-11-jre
+                    state: absent
+
+          - name: Download JVM
+            unarchive:
+                   remote_src: yes
+                   src: "{{ jvm_url }}"
+                   dest: /opt/
+
+          - name: Install Java on the system defaults
+            shell: 
+                  update-alternatives --install /usr/bin/java java /opt/jdk8u222-b10/bin/java 500
+
+          - name: Install squash-tm and mariadb client
+            apt:
+                    update_cache: yes
+                    name: squash-tm,mariadb-client
+                    state: present
+
+          - name: Load variables from ansible-vault encrypted file
+            include_vars:
+                    file: secret.yaml
+
+          - name: Install squash-tm default config file from template
+            template:
+                    dest: /etc/default/squash-tm
+                    src: squash-tm.j2
+          - block:  
+            - shell:
+                    mysql -u "{{ squashdb_user }}" -p"{{squashdb_password}}" -h "{{ db_host }}" squash_db < /usr/share/dbconfig-common/data/squash-tm/install/mysql
+
+            rescue:
+            - debug:
+                    msg: Impossible de rejouer le script de peuplement de la base.
+
+          - name: Restart squash-tm service
+            service:
+                    name: squash-tm
+                    state: restarted
+

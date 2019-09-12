@@ -1,0 +1,37 @@
+---
+
+- hosts: localhost
+  gather_facts: false
+
+  vars:
+          conteneurs:
+                  squashtm: 10.0.0.2
+                  mariadb1: 10.0.0.3
+                  mariadb2: 10.0.0.4
+                  proxy: 10.0.0.5
+
+  tasks:
+          - name: Create network
+            docker_network:
+                    name: subnet0
+                    ipam_config:
+                            - gateway: 10.0.0.254
+                              iprange: 10.0.0.0/24
+                              subnet: 10.0.0.0/24
+
+          - name: Deploy containers
+            docker_container:
+                    name: "{{ item.key }}"
+                    hostname: "{{ item.key }}"
+                    image: debian-ansible:buster
+                    state: started
+                    tty: yes
+                    pull: no
+                    purge_networks: yes
+                    networks:
+                            - name: subnet0
+                              ipv4_address: "{{ item.value }}"
+            loop: "{{ conteneurs | dict2items }}"
+
+          - name: Start SSH servers
+            shell: for ct in $(docker ps -q) ; do docker exec -t $ct service ssh start ; done
