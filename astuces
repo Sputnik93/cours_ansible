@@ -1,0 +1,45 @@
+sudo apt update 
+sudo apt upgrade -y
+sudo install -y python3-pip
+sudo apt-get install apt-transport-https ca-certificates  curl  gnupg2  software-properties-common
+curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
+sudo add-apt-repository  "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+sudo apt update
+sudo apt install docker-ce docker-ce-cli containerd.io
+
+sudo usermod -aG docker formation
+
+
+
+sudo docker run -d -h "conteneur1" --interactive debian-ansible
+
+sudo docker exec -t -i <ID conteneur> /bin/bash
+
+
+config_file=/etc/mysql/my.cnf
+
+login_unix_socket=/var/run/mysqld/mysqld.sock
+
+
+ansible conteneurs -m pip -a "executable=/usr/bin/pip3 name=PyMySQL state=present"
+
+
+ansible conteneurs -m mysql_db -a "config_file=/etc/mysql/my.cnf login_unix_socket=/var/run/mysqld/mysqld.sock name=database state=present"
+
+
+ansible conteneurs -m mysql_user -a "config_file=/etc/mysql/my.cnf login_unix_socket=/var/run/mysqld/mysqld.sock name=db_user password=mypassword priv='database.*:ALL' state=present"
+
+
+sudo pip3 uninstall docker-py
+
+dans le fichier /etc/ansible/hosts:
+localhost:ansible_python_interpreter=python3
+
+
+- mettre à jour les paquets (module apt)
+- installer le paquet mariadb-server (module apt)
+- installer le module PyMySQL (module pip)
+- créer une base de données (module mysql_db)
+- créer un utilisateur avec les droits sur la base de données (module mysql_user)
+
+
